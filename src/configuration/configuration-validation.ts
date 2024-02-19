@@ -66,7 +66,7 @@ export function validateEnv(config: Record<string, unknown>) {
   });
 
   if (errors.length > 0) {
-    throw new Error(errors?.toString());
+    throw new Error('');
   }
   return validatedConfig;
 }
