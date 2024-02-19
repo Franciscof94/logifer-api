@@ -23,7 +23,7 @@ const options: DataSourceOptions & SeederOptions = {
   seeds: seedersClasses,
   migrationsTableName: 'migrations',
   migrationsRun: false,
-  synchronize: false,
+  synchronize: true,
   logging: false,
 };
 
