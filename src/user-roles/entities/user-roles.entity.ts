@@ -27,10 +27,4 @@ export class UserRole {
 
   @Column({ nullable: false })
   roleId: number;
-
-  /*   @ManyToOne(() => Institucion, { eager: false })
-  institucion: Institucion; */
-
-  /*  @Column({ nullable: false })
-  institucionId: number; */
 }

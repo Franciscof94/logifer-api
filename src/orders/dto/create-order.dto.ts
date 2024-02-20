@@ -25,10 +25,6 @@ export class CreateOrderDto {
 
   @IsNotEmpty()
   @IsString()
-  unit: string;
-
-  @IsNotEmpty()
-  @IsString()
   orderDate: string;
 
   @IsOptional()

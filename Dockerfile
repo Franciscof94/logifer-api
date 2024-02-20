@@ -10,6 +10,9 @@ COPY . .
 
 RUN npm run build
 
+# Crear y generar migraciones
+
+
 EXPOSE 3000
 
 CMD ["npm", "run", "start:debug"]
