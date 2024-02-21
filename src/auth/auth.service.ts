@@ -7,7 +7,6 @@ import { JwtPayload } from './interfaces/jwt-payload.interface';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { Users } from '../users/entities/users.entity';
-import { hashSync } from 'bcryptjs';
 
 @Injectable()
 export class AuthService {

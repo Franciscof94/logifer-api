@@ -75,6 +75,8 @@ export class OrdersService {
           product: order.productId,
           deliveryDate: order.deliveryDate,
           orderDate: order.orderDate,
+          unit: '',
+          send: false,
         });
       }
     }
@@ -192,22 +194,31 @@ export class OrdersService {
       },
     });
 
+    if (!productOrderFind) {
+      throw new NotFoundException('La orden no pudo ser encontrada');
+    }
+
     const findProductStock = await this.productRepository.findOne({
       where: {
         id: productOrderFind.product,
       },
     });
 
-    if (findProductStock.stock === 0) {
-      throw new BadRequestException('No hay stock suficiente');
+    console.log(findProductStock, count);
+
+    if (!findProductStock) {
+      throw new NotFoundException('El producto no pudo ser encontrado');
     }
 
-    if (!productOrderFind) {
-      throw new NotFoundException('La orden no pudo ser encontrada');
+    if (count > findProductStock.stock) {
+      throw new BadRequestException('No hay suficiente stock disponible');
     }
 
-    productOrderFind.count = count;
+    productOrderFind.count += count;
+    findProductStock.stock -= count;
+
     await this.orderRepository.save(productOrderFind);
+    await this.productRepository.save(findProductStock);
 
     return 'Cantidad actualizada correctamente de la orden';
   }

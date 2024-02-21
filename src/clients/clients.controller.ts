@@ -33,8 +33,9 @@ export class ClientsController {
   }
 
   @Patch('/edit-client/:id')
-  editClient(@Param() clientId: number, @Body() client: IClient) {
-    return this.clientsService.clientEdit({ clientId, client });
+  editClient(@Param() clientId: { id: number }, @Body() client: IClient) {
+    const { id } = clientId;
+    return this.clientsService.clientEdit({ id, client });
   }
 
   @Get('')

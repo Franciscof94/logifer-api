@@ -85,18 +85,20 @@ export class ClientsService {
     return 'Cliente eliminado correctamente';
   }
 
-  async clientEdit(clientData: { clientId: number; client: IClient }) {
-    const { client, clientId } = clientData;
+  async clientEdit(clientData: { id: number; client: IClient }) {
+    const { client, id } = clientData;
 
-    if (!clientId && !client) {
+    if (!id && !client) {
       throw new BadRequestException(
         'El id y el cliente no pueden estar vacios',
       );
     }
 
+    console.log(id);
+
     const findClient = await this.clientRepository.findOne({
       where: {
-        id: clientId,
+        id: id,
       },
     });
 
