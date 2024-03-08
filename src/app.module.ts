@@ -12,6 +12,7 @@ import { ClientsModule } from './clients/clients.module';
 import { UnitType } from './products/unitType/entities/unittype.entity';
 import { ConfigurationModule } from './configuration/configuration.module';
 import config from '../ormconfig';
+import { ProductsOrders } from './products-orders/entities/products-orders.entity';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import config from '../ormconfig';
     ClientsModule,
     OrdersModule,
     UnitType,
+    ProductsOrders,
   ],
   controllers: [AppController],
   providers: [AppService],

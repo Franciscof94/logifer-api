@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Orders } from './entities/orders.entity';
-import { Between, Repository } from 'typeorm';
+import { Between, In, Repository } from 'typeorm';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { format } from 'date-fns';
 import { OrdersFiltersDto } from './dto/orders-filter.dto';
@@ -15,6 +15,7 @@ import { getOrdersFiltersApplier } from './functions/get-orders-filter-applier';
 import { applyQueryFilters } from 'src/pagination/functions/apply-query-filters';
 import { Product } from 'src/products/entities/products.entity';
 import { BadRequestException } from '@nestjs/common';
+import { ProductsOrders } from 'src/products-orders/entities/products-orders.entity';
 
 @Injectable()
 export class OrdersService {
@@ -23,6 +24,8 @@ export class OrdersService {
     private orderRepository: Repository<Orders>,
     @InjectRepository(Product)
     private productRepository: Repository<Product>,
+    @InjectRepository(ProductsOrders)
+    private productsOrdersRepository: Repository<ProductsOrders>,
   ) {}
 
   async createNewOrder(createOrderDto: CreateOrderDto[]) {
@@ -35,9 +38,11 @@ export class OrdersService {
       order.orderDate = orderDateFormatted;
 
       const existingOrder = await this.orderRepository.findOne({
+        relations: {
+          productsOrders: true,
+        },
         where: {
           clientId: order.clientId,
-          product: order.productId,
           orderDate: order.orderDate,
         },
       });
@@ -63,20 +68,42 @@ export class OrdersService {
       await this.productRepository.save(product);
 
       if (existingOrder) {
-        existingOrder.count += order.count;
-        await this.orderRepository.save(existingOrder);
+        const existingProductOrder = existingOrder.productsOrders.find(
+          (po) => po.product === order.productId,
+        );
+
+        if (existingProductOrder) {
+          existingProductOrder.count += order.count;
+          await this.productsOrdersRepository.save(existingProductOrder);
+        } else {
+          await this.productsOrdersRepository.insert({
+            count: order.count,
+            product: order.productId,
+            price: product.price,
+            order: {
+              id: existingOrder.id,
+            },
+          });
+        }
       } else {
-        await this.orderRepository.insert({
+        const newOrder = await this.orderRepository.save({
           address: order.address,
           client: {
             id: order.clientId,
           },
-          count: order.count,
-          product: order.productId,
           deliveryDate: order.deliveryDate,
           orderDate: order.orderDate,
           unit: '',
           send: false,
+        });
+
+        await this.productsOrdersRepository.insert({
+          count: order.count,
+          product: order.productId,
+          price: product.price,
+          order: {
+            id: newOrder.id,
+          },
         });
       }
     }
@@ -91,7 +118,8 @@ export class OrdersService {
 
     let query = this.orderRepository
       .createQueryBuilder('order')
-      .leftJoinAndSelect('order.client', 'client');
+      .leftJoinAndSelect('order.client', 'client')
+      .orderBy('order.createdAt', 'DESC');
 
     const filters = await getOrdersFiltersApplier(filtersOptions);
     query = await applyQueryFilters(query, filters);
@@ -106,12 +134,10 @@ export class OrdersService {
           },
           relations: {
             client: true,
+            productsOrders: true,
           },
         });
 
-        const findProduct = await this.productRepository.findOne({
-          where: { id: orderDetails.product },
-        });
         return {
           id: orderDetails.id,
           client: orderDetails.client.nameAndLastname,
@@ -119,34 +145,31 @@ export class OrdersService {
           orderDate: orderDetails.orderDate,
           send: orderDetails.send,
           address: orderDetails.address,
-          order: [
-            {
-              id: orderDetails.id,
-              product: findProduct.productName,
-              count: orderDetails.count,
-              unit: '',
-              price: '$' + findProduct.price,
-            },
-          ],
+          order: await Promise.all(
+            orderDetails.productsOrders.map(async (ctProductOrder) => {
+              const productDetails = await this.productRepository.findOne({
+                where: { id: ctProductOrder.product },
+              });
+
+              return {
+                id: orderDetails.id,
+                count: ctProductOrder.count,
+                price: ctProductOrder.price.toString(),
+                product: {
+                  id: productDetails.id,
+                  name: productDetails
+                    ? productDetails.productName
+                    : 'Descripción no disponible',
+                },
+              };
+            }),
+          ),
         };
       },
     );
 
-    const groupedOrders = {};
-    ordersResponse.data.forEach((order) => {
-      const key = `${order.client}-${order.orderDate}`;
-      if (!groupedOrders[key]) {
-        groupedOrders[key] = order;
-      } else {
-        groupedOrders[key].order.push(...order.order);
-      }
-    });
-
-    const data = Object.values(groupedOrders);
-
     return {
       ...ordersResponse,
-      data,
     };
   }
 
@@ -165,46 +188,60 @@ export class OrdersService {
     return `Pedido marcado como enviado el día ${deliveryDate}`;
   }
 
-  async deleteProductOrder(orderProductId: number) {
-    if (!orderProductId) {
+  async deleteProductOrder(orderId: number, productId: number) {
+    if (!orderId) {
       throw new BadGatewayException('El id no puede estar vacio');
     }
 
-    const productOrder = await this.orderRepository.findOne({
+    const productOrder = await this.productsOrdersRepository.findOne({
       where: {
-        id: orderProductId,
+        order: {
+          id: orderId,
+        },
+        product: productId,
       },
     });
 
-    await this.orderRepository.remove(productOrder);
+    await this.productsOrdersRepository.remove(productOrder);
     return 'Product eliminado correctamente de la orden';
   }
 
-  async editProductCount(productOrder: { id: number; count: number }) {
-    const { id, count } = productOrder;
-    if (id === undefined || count === undefined) {
+  async editProductCount(productOrder: {
+    orderId: number;
+    productId: number;
+    count: number;
+  }) {
+    const { orderId, productId, count } = productOrder;
+    if (
+      orderId === undefined ||
+      productId === undefined ||
+      count === undefined
+    ) {
       throw new BadGatewayException(
         'El id y la cantidad no pueden estar vacíos',
       );
     }
 
-    const productOrderFind = await this.orderRepository.findOne({
+    const productOrderFind = await this.productsOrdersRepository.findOne({
       where: {
-        id: id,
+        order: {
+          id: orderId,
+        },
+        product: productId,
       },
     });
 
     if (!productOrderFind) {
-      throw new NotFoundException('La orden no pudo ser encontrada');
+      throw new NotFoundException(
+        'El producto en la orden no pudo ser encontrada',
+      );
     }
 
     const findProductStock = await this.productRepository.findOne({
       where: {
-        id: productOrderFind.product,
+        id: productId,
       },
     });
-
-    console.log(findProductStock, count);
 
     if (!findProductStock) {
       throw new NotFoundException('El producto no pudo ser encontrado');
@@ -214,10 +251,10 @@ export class OrdersService {
       throw new BadRequestException('No hay suficiente stock disponible');
     }
 
-    productOrderFind.count += count;
+    productOrderFind.count = count;
     findProductStock.stock -= count;
 
-    await this.orderRepository.save(productOrderFind);
+    await this.productsOrdersRepository.save(productOrderFind);
     await this.productRepository.save(findProductStock);
 
     return 'Cantidad actualizada correctamente de la orden';
@@ -231,28 +268,20 @@ export class OrdersService {
       where: {
         createdAt: Between(startDate, endDate),
       },
-      select: ['id', 'count', 'createdAt', 'product'],
+      relations: ['productsOrders'],
     });
 
-    const monthlySales: number[] = Array(12).fill(null);
+    const monthlySales: number[] = Array(12).fill(0);
 
     for (const order of orders) {
       const month = order.createdAt.getMonth();
-      const product = await this.productRepository.findOne({
-        where: {
-          id: order.product,
-        },
-      });
 
-      if (product) {
-        const total = order.count * product.price;
-
-        if (monthlySales[month] === null) {
-          monthlySales[month] = total;
-        } else {
-          monthlySales[month] += total;
-        }
+      let orderTotal = 0;
+      for (const productOrder of order.productsOrders) {
+        orderTotal += productOrder.price * productOrder.count;
       }
+
+      monthlySales[month] += orderTotal;
     }
 
     return monthlySales;
@@ -266,34 +295,32 @@ export class OrdersService {
     productId: number;
     year: number;
     month: number;
-  }): Promise<number[]> {
+  }): Promise<[number]> {
     const startDate = new Date(year, month - 1, 1);
     const endDate = new Date(year, month, 0);
+
     const orders = await this.orderRepository.find({
       where: {
-        product: productId,
         createdAt: Between(startDate, endDate),
       },
-      select: ['count', 'createdAt'],
+      select: ['id'],
     });
 
-    const totalSalesByMonth: number = orders.reduce((total, order) => {
-      return total + order.count;
-    }, 0);
+    const orderIds = orders.map((order) => order.id);
 
-    const product = await this.productRepository.findOne({
+    const productsOrders = await this.productsOrdersRepository.find({
       where: {
-        id: productId,
+        product: productId,
+        order: In(orderIds),
       },
+      select: ['count'],
     });
 
-    if (!product) {
-      throw new NotFoundException(
-        `No se encontró el producto con ID ${product}`,
-      );
-    }
+    const totalSales = productsOrders.reduce(
+      (total, productOrder) => total + productOrder.count,
+      0,
+    );
 
-    const totalPrice = totalSalesByMonth;
-    return [totalPrice];
+    return [totalSales];
   }
 }

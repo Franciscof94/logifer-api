@@ -94,8 +94,6 @@ export class ClientsService {
       );
     }
 
-    console.log(id);
-
     const findClient = await this.clientRepository.findOne({
       where: {
         id: id,

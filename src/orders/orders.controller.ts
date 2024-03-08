@@ -31,21 +31,31 @@ export class OrdersController {
     return this.ordersService.markAsSent(markAsSentDto);
   }
 
-  @Delete('delete-product-order/:id')
-  deleteProductOrder(@Param() productOrderId: { id: string }) {
-    const { id } = productOrderId;
-    return this.ordersService.deleteProductOrder(Number(id));
+  @Delete('delete-product-order/:id/:productId')
+  deleteProductOrder(
+    @Param() orderId: { id: string },
+    @Param() productOrderId: { id: string },
+  ) {
+    const { id: order_id } = orderId;
+    const { id: product_order_id } = productOrderId;
+    return this.ordersService.deleteProductOrder(
+      Number(order_id),
+      Number(product_order_id),
+    );
   }
 
-  @Patch('edit-product-count/:id')
+  @Patch('edit-product-count/:id/:productId')
   editProductCount(
-    @Param() productOrderId: { id: string },
+    @Param() orderId: { id: string },
+    @Param() productId: { productId: string },
     @Body() body: { count: number },
   ) {
-    const { id } = productOrderId;
+    const { id: order_id } = orderId;
+    const { productId: product_id } = productId;
     const { count } = body;
     return this.ordersService.editProductCount({
-      id: Number(id),
+      orderId: Number(order_id),
+      productId: Number(product_id),
       count,
     });
   }

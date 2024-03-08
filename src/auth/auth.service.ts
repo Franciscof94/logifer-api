@@ -63,7 +63,6 @@ export class AuthService {
   }
 
   private getRefreshToken(payload: JwtPayload) {
-    console.log(payload);
     return this.jwtService.sign(payload, {
       secret: this.configService.get<string>('REFRESH_TOKEN_SECRET'),
       expiresIn: this.configService.get<string>('REFRESH_TOKEN_EXPIRATION'),

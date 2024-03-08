@@ -1,3 +1,4 @@
+import { ProductsOrders } from 'src/products-orders/entities/products-orders.entity';
 import { Client } from '../../clients/entities/clients.entity';
 import {
   Column,
@@ -5,6 +6,7 @@ import {
   Entity,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm';
 
@@ -25,12 +27,6 @@ export class Orders {
   @Column({ type: 'varchar', length: 50 })
   orderDate: string;
 
-  @Column({ type: 'float' })
-  count: number;
-
-  @Column()
-  product: number;
-
   @Column()
   send: boolean;
 
@@ -43,4 +39,7 @@ export class Orders {
   @ManyToOne(() => Client, (client) => client.orders)
   @JoinColumn({ name: 'client_id', referencedColumnName: 'id' })
   client: Client;
+
+  @OneToMany(() => ProductsOrders, (order) => order.order)
+  productsOrders: ProductsOrders[];
 }
