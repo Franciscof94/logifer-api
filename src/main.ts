@@ -2,6 +2,9 @@ import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { CorsOptions } from '@nestjs/common/interfaces/external/cors-options.interface';
+import { DataSource } from 'typeorm';
+import { runSeeder } from 'typeorm-extension';
+import { MainSeeder } from './seeds/MainSeeder';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.useGlobalPipes(
@@ -19,6 +22,10 @@ async function bootstrap() {
     credentials: true,
   };
   app.enableCors(corsOptions);
+
+  const dataSource = app.get<DataSource>(DataSource);
+  await runSeeder(dataSource, MainSeeder);
+
   await app.listen(process.env.PORT);
 }
 bootstrap();

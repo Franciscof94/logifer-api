@@ -34,10 +34,10 @@ export class OrdersController {
   @Delete('delete-product-order/:id/:productId')
   deleteProductOrder(
     @Param() orderId: { id: string },
-    @Param() productOrderId: { id: string },
+    @Param() productOrderId: { productId: string },
   ) {
     const { id: order_id } = orderId;
-    const { id: product_order_id } = productOrderId;
+    const { productId: product_order_id } = productOrderId;
     return this.ordersService.deleteProductOrder(
       Number(order_id),
       Number(product_order_id),

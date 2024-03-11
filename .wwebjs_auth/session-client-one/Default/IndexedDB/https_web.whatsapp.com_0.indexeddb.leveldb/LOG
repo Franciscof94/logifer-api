@@ -1,0 +1,22 @@
+2024/03/10-22:10:27.721 32bc Reusing MANIFEST C:\Users\manue\Documents\LOGIFER\patisserie-backend\.wwebjs_auth\session-client-one\Default\IndexedDB\https_web.whatsapp.com_0.indexeddb.leveldb/MANIFEST-000001
+2024/03/10-22:10:27.721 32bc Recovering log #305
+2024/03/10-22:10:27.839 32bc Reusing old log C:\Users\manue\Documents\LOGIFER\patisserie-backend\.wwebjs_auth\session-client-one\Default\IndexedDB\https_web.whatsapp.com_0.indexeddb.leveldb/000305.log 
+2024/03/10-22:27:45.051 4c70 Level-0 table #315: started
+2024/03/10-22:27:45.076 4c70 Level-0 table #315: 1234733 bytes OK
+2024/03/10-22:27:45.077 4c70 Delete type=0 #305
+2024/03/10-22:27:45.081 4c70 Compacting 1@1 + 6@2 files
+2024/03/10-22:27:45.258 4c70 Generated table #316@1: 72545 keys, 2249037 bytes
+2024/03/10-22:27:45.309 4c70 Generated table #317@1: 11540 keys, 2168454 bytes
+2024/03/10-22:27:45.353 4c70 Generated table #318@1: 10087 keys, 2172856 bytes
+2024/03/10-22:27:45.415 4c70 Generated table #319@1: 26019 keys, 2210005 bytes
+2024/03/10-22:27:45.538 4c70 Generated table #320@1: 104730 keys, 2258476 bytes
+2024/03/10-22:27:45.590 4c70 Generated table #321@1: 58745 keys, 1247447 bytes
+2024/03/10-22:27:45.590 4c70 Compacted 1@1 + 6@2 files => 12306275 bytes
+2024/03/10-22:27:45.591 4c70 compacted to: files[ 0 0 6 0 0 0 0 ]
+2024/03/10-22:27:45.591 4c70 Delete type=2 #307
+2024/03/10-22:27:45.591 4c70 Delete type=2 #308
+2024/03/10-22:27:45.591 4c70 Delete type=2 #309
+2024/03/10-22:27:45.591 4c70 Delete type=2 #310
+2024/03/10-22:27:45.591 4c70 Delete type=2 #311
+2024/03/10-22:27:45.591 4c70 Delete type=2 #312
+2024/03/10-22:27:45.591 4c70 Delete type=2 #315

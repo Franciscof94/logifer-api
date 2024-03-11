@@ -1,0 +1,119 @@
+<html lang='en'>
+<head>
+    <meta charset='UTF-8'/>
+    <meta http-equiv='X-UA-Compatible' content='IE=edge'/>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'/>
+    <title>Detalles de la orden</title>
+    <link rel='preconnect' href='https://fonts.googleapis.com'/>
+    <link rel='preconnect' href='https://fonts.gstatic.com' crossorigin/>
+    <link href='https://fonts.googleapis.com/css2?family=Montserrat:wght@0,100..900&display=swap' rel='stylesheet'/>
+
+    <style>
+        body {
+            font-family: 'Montserrat', sans-serif; /* Aplica Montserrat a todo el texto */
+        }
+
+        .header-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            margin: 25px 78px;
+        }
+
+        .business-info {
+            text-align: right; /* Alinea los datos del negocio a la derecha */
+        }
+
+        .business-info h3 {
+            font-size: 24px; /* Tamaño grande para el nombre del negocio */
+            font-weight: bold; /* Texto grueso */
+            margin: 0 0 5px 0; /* Reduce el margen entre los títulos */
+        }
+
+        .business-info p {
+            margin: 4px 0; /* Reduce el margen entre los párrafos */
+            font-size: 14px;
+        }
+
+        /* Estilos CSS para la tabla */
+        table {
+            border-collapse: collapse;
+            width: 80%;
+            margin: 0 auto;
+            border-radius: 4px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 6px 12px;
+            text-align: center;
+        }
+
+        th {
+            background-color: #3342B1;
+            color: white;
+        }
+
+        .total-row td:last-child {
+            font-weight: bold;
+        }
+
+        tbody tr:nth-child(odd) {
+            background-color: #f2f2f2;
+        }
+
+        .discount-text {
+            color: #50a92d;
+            font-weight: bold;
+        }
+
+    </style>
+</head>
+<body>
+<div class="header-container">
+    <div>
+        <img src="public/Logo.png" alt='Logifer' style="max-width: 100px;"/> <!-- Ajusta el tamaño de la imagen si es necesario -->
+    </div>
+    <div class="business-info">
+        <h3>Ferraro materiales</h3>
+        <p>Dolores - Pcia de Buenos Aires</p>
+        <p>Mitre 1775</p>
+        <p>2245442493 -</p>
+        <p>ferraromateriales.com.ar</p>
+    </div>
+</div>
+<h2 style='text-align: start; margin-left: 77px;'>Detalles de la orden</h2>
+<table>
+    <thead>
+    <tr>
+        <th style='width: 20%;'>Producto</th>
+        <th style='width: 15%;'>Cantidad</th>
+        <th style='width: 30%;'>Precio por unidad</th>
+        <th style='width: 35%;'>Precio</th>
+    </tr>
+    </thead>
+    <tbody>
+    {{#each productsOrder}}
+    <tr>
+        <td>{{this.product}}</td>
+        <td>{{this.count}}</td>
+        <td>${{this.unitPrice}}</td>
+        <td>${{this.price}}</td>
+    </tr>
+    {{/each}}
+
+    <tr class='total-row'>
+        <td colspan='3'></td>
+        <td>Total: ${{total}}
+            {{#if discount}}
+            <div class='discount-text'>10% de descuento</div>
+            {{/if}}
+        </td>
+    </tr>
+    </tbody>
+</table>
+</body>
+</html>

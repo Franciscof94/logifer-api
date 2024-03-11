@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsDate,
   IsNotEmpty,
   IsNumber,
@@ -10,6 +11,10 @@ export class CreateOrderDto {
   @IsNotEmpty()
   @IsNumber()
   clientId: number;
+
+  @IsNotEmpty()
+  @IsBoolean()
+  discount: boolean;
 
   @IsNotEmpty()
   @IsNumber()

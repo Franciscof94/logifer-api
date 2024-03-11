@@ -7,6 +7,7 @@ import { JwtPayload } from './interfaces/jwt-payload.interface';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { Users } from '../users/entities/users.entity';
+import { hashSync } from 'bcryptjs';
 
 @Injectable()
 export class AuthService {
@@ -27,6 +28,9 @@ export class AuthService {
       },
       relations: ['userRoles'],
     });
+
+    const asd = hashSync('@Logifer2024' + 10);
+    console.log(user, password);
 
     if (!user || !compareSync(password, user.password)) {
       throw new UnauthorizedException('Credenciales incorrectas');

@@ -20,8 +20,8 @@ export class UserSeeder implements Seeder {
   async run(dataSource: DataSource): Promise<void> {
     const USERS: IUser[] = [
       {
-        name: 'User',
-        lastname: 'User',
+        name: 'Francisco',
+        lastname: 'Ferraro',
         email: configService.get('INITIAL_EMAIL')
           ? configService.get('INITIAL_EMAIL')
           : 'user@user.com',

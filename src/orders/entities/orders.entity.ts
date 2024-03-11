@@ -30,6 +30,12 @@ export class Orders {
   @Column()
   send: boolean;
 
+  @Column()
+  discount: boolean;
+
+  @Column({ type: 'float' })
+  total: number;
+
   @CreateDateColumn()
   createdAt: Date;
 

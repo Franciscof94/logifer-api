@@ -16,6 +16,11 @@ import { applyQueryFilters } from 'src/pagination/functions/apply-query-filters'
 import { Product } from 'src/products/entities/products.entity';
 import { BadRequestException } from '@nestjs/common';
 import { ProductsOrders } from 'src/products-orders/entities/products-orders.entity';
+import { Client, LocalAuth, MessageMedia } from 'whatsapp-web.js';
+import * as fs from 'fs';
+import handlebars from 'handlebars';
+import * as htmlToPdf from 'html-pdf';
+import * as path from 'path';
 
 @Injectable()
 export class OrdersService {
@@ -28,12 +33,19 @@ export class OrdersService {
     private productsOrdersRepository: Repository<ProductsOrders>,
   ) {}
 
+  private loadTemplate(templateName: string): handlebars.TemplateDelegate {
+    const templatePath = `src/orders/templates/${templateName}`;
+    const templateSource = fs.readFileSync(templatePath, 'utf8');
+    return handlebars.compile(templateSource);
+  }
   async createNewOrder(createOrderDto: CreateOrderDto[]) {
     if (!createOrderDto.length) {
       throw new BadGatewayException('La orden no puede estar vacia');
     }
 
     for (const order of createOrderDto) {
+      let totalPrice: number;
+
       const orderDateFormatted = format(new Date(), 'yyyy-MM-dd');
       order.orderDate = orderDateFormatted;
 
@@ -64,6 +76,13 @@ export class OrdersService {
           `No hay suficiente stock disponible para el producto ${product.productName}`,
         );
       }
+
+      if (order.discount) {
+        totalPrice = product.price * order.count * 0.9;
+      } else {
+        totalPrice = product.price * order.count;
+      }
+
       product.stock -= order.count;
       await this.productRepository.save(product);
 
@@ -72,6 +91,26 @@ export class OrdersService {
           (po) => po.product === order.productId,
         );
 
+        const withoutNewProduct = existingOrder.productsOrders.reduce(
+          (acc, val) => {
+            return (acc += val.count * val.price);
+          },
+          0,
+        );
+
+        if (order.discount) {
+          console.log('Este ', withoutNewProduct);
+          const newProductPrice = product.price * order.count;
+          totalPrice = withoutNewProduct + newProductPrice;
+          totalPrice *= 0.9;
+        } else {
+          totalPrice = withoutNewProduct + product.price * order.count;
+        }
+
+        existingOrder.total = totalPrice;
+
+        await this.orderRepository.save(existingOrder);
+
         if (existingProductOrder) {
           existingProductOrder.count += order.count;
           await this.productsOrdersRepository.save(existingProductOrder);
@@ -79,6 +118,7 @@ export class OrdersService {
           await this.productsOrdersRepository.insert({
             count: order.count,
             product: order.productId,
+
             price: product.price,
             order: {
               id: existingOrder.id,
@@ -88,9 +128,12 @@ export class OrdersService {
       } else {
         const newOrder = await this.orderRepository.save({
           address: order.address,
+          createdAt: new Date(),
           client: {
             id: order.clientId,
           },
+          total: totalPrice,
+          discount: order.discount,
           deliveryDate: order.deliveryDate,
           orderDate: order.orderDate,
           unit: '',
@@ -138,12 +181,27 @@ export class OrdersService {
           },
         });
 
+        let deliveryDateFormat;
+
+        const deliveryDate = orderDetails.deliveryDate?.toString().split('-');
+
+        if (deliveryDateFormat) {
+          deliveryDateFormat =
+            deliveryDate[2] + '-' + deliveryDate[1] + '-' + deliveryDate[0];
+        }
+        const orderDate = orderDetails.orderDate.toString().split('-');
+
+        const orderDateFormat =
+          orderDate[2] + '-' + orderDate[1] + '-' + orderDate[0];
+
         return {
           id: orderDetails.id,
           client: orderDetails.client.nameAndLastname,
-          deliveryDate: orderDetails.deliveryDate || '',
-          orderDate: orderDetails.orderDate,
+          deliveryDate: deliveryDateFormat || '',
+          orderDate: orderDateFormat,
           send: orderDetails.send,
+          total: orderDetails.total,
+          discount: orderDetails.discount ? '10%' : '',
           address: orderDetails.address,
           order: await Promise.all(
             orderDetails.productsOrders.map(async (ctProductOrder) => {
@@ -154,6 +212,7 @@ export class OrdersService {
               return {
                 id: orderDetails.id,
                 count: ctProductOrder.count,
+
                 price: ctProductOrder.price.toString(),
                 product: {
                   id: productDetails.id,
@@ -179,12 +238,92 @@ export class OrdersService {
       where: {
         id: orderId,
       },
+      relations: {
+        client: true,
+        productsOrders: true,
+      },
     });
 
     findOrder.send = true;
     findOrder.deliveryDate = deliveryDate;
+    const SESSION_FILE_PATH = 'session.json';
 
-    await this.orderRepository.save(findOrder);
+    const clientConfig = {
+      puppeteer: { headless: true },
+      authStrategy: new LocalAuth({ clientId: 'client-one' }),
+    };
+
+    const client = new Client(clientConfig);
+
+    const html = this.loadTemplate('template.hbs');
+
+    const findProduct = async (id: number) => {
+      return await this.productRepository.findOne({
+        where: {
+          id: id,
+        },
+      });
+    };
+
+    const productPromises = findOrder.productsOrders.map(async (ctOrder) => {
+      const product = await findProduct(ctOrder.product);
+      return {
+        product: product.productName,
+        price: ctOrder.count * ctOrder.price,
+        unitPrice: ctOrder.price,
+        count: ctOrder.count,
+      };
+    });
+
+    const productsOrder = await Promise.all(productPromises);
+
+    const data = {
+      clientName: findOrder.client.nameAndLastname,
+      deliveryDate: deliveryDate,
+      logoUrl: './Logo.png',
+      productsOrder: productsOrder,
+      total: findOrder.total,
+      discount: findOrder.discount,
+    };
+
+    const pdfPath = 'Orden.pdf';
+
+    const compiledHtml = html(data);
+
+    htmlToPdf.create(compiledHtml).toFile(pdfPath, async (err) => {
+      if (err) return console.log(err);
+
+      client.on('authenticated', (session) => {
+        if (session) {
+          fs.writeFileSync(SESSION_FILE_PATH, JSON.stringify(session));
+        }
+      });
+
+      client.on('qr', (qr) => {
+        console.log('QR Code received', qr);
+      });
+
+      client.on('ready', async () => {
+        console.log('Client is ready!');
+
+        const number = `+549${findOrder.client.phone}`;
+        const chatId = number.substring(1) + '@c.us';
+
+        const media = MessageMedia.fromFilePath(pdfPath);
+        await client.sendMessage(
+          chatId,
+          `Hola ${findOrder.client.nameAndLastname}, nos comunicamos desde Ferraro Materiales para recordarle que su pedido será enviado el día de la fecha. Esperemos que tenga una buena jornada.`,
+          {
+            media,
+          },
+        );
+
+        /*   await this.orderRepository.save(findOrder); */
+      });
+
+      client.initialize();
+    });
+
     return `Pedido marcado como enviado el día ${deliveryDate}`;
   }
 
@@ -193,7 +332,12 @@ export class OrdersService {
       throw new BadGatewayException('El id no puede estar vacio');
     }
 
+    console.log(orderId, productId);
+
     const productOrder = await this.productsOrdersRepository.findOne({
+      relations: {
+        order: true,
+      },
       where: {
         order: {
           id: orderId,
@@ -201,7 +345,19 @@ export class OrdersService {
         product: productId,
       },
     });
+    if (!productOrder) {
+      throw new NotFoundException(
+        `El producto con ID ${productId} no está en la orden con ID ${orderId}`,
+      );
+    }
 
+    const order = productOrder.order;
+    if (order.discount) {
+      order.total -= productOrder.count * productOrder.price * 0.9;
+    } else {
+      order.total -= productOrder.count * productOrder.price;
+    }
+    await this.orderRepository.save(order);
     await this.productsOrdersRepository.remove(productOrder);
     return 'Product eliminado correctamente de la orden';
   }
@@ -223,6 +379,9 @@ export class OrdersService {
     }
 
     const productOrderFind = await this.productsOrdersRepository.findOne({
+      relations: {
+        order: true,
+      },
       where: {
         order: {
           id: orderId,
@@ -231,10 +390,37 @@ export class OrdersService {
       },
     });
 
+    const productsOrdersFindWithoutProductParams =
+      await this.productsOrdersRepository.find({
+        where: {
+          order: {
+            id: orderId,
+          },
+        },
+      });
+
+    const totalCountWithoutProductParams =
+      productsOrdersFindWithoutProductParams.reduce((acc, val) => {
+        if (val.product !== productId) {
+          return acc + val.count * val.price;
+        }
+        return acc;
+      }, 0);
+
     if (!productOrderFind) {
       throw new NotFoundException(
         'El producto en la orden no pudo ser encontrada',
       );
+    }
+
+    if (productOrderFind.order.discount) {
+      const countNewProduct =
+        count * productOrderFind.price + totalCountWithoutProductParams;
+      productOrderFind.order.total = countNewProduct * 0.9;
+    } else {
+      const countNewProduct =
+        count * productOrderFind.price + totalCountWithoutProductParams;
+      productOrderFind.order.total = countNewProduct;
     }
 
     const findProductStock = await this.productRepository.findOne({
@@ -253,7 +439,7 @@ export class OrdersService {
 
     productOrderFind.count = count;
     findProductStock.stock -= count;
-
+    await this.orderRepository.save(productOrderFind.order);
     await this.productsOrdersRepository.save(productOrderFind);
     await this.productRepository.save(findProductStock);
 
@@ -276,12 +462,7 @@ export class OrdersService {
     for (const order of orders) {
       const month = order.createdAt.getMonth();
 
-      let orderTotal = 0;
-      for (const productOrder of order.productsOrders) {
-        orderTotal += productOrder.price * productOrder.count;
-      }
-
-      monthlySales[month] += orderTotal;
+      monthlySales[month] += order.total;
     }
 
     return monthlySales;
